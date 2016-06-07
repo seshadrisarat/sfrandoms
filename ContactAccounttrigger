@@ -1,0 +1,107 @@
+trigger ContactAccountTrigger on Contact (after insert,after update,after delete,after undelete) 
+{
+	/* -- ContactAccount Trigger
+	 *    Developer Name : Sarath Chandra
+	 * 	  Date: 6th June 2016  
+		1) Create a map to hold all contact that are part of trigger.new
+		2) Count the aggregate of no of contacts for each account.
+		
+			---------------------*/
+    Map<id,list<contact>> mapforupdate = new map<id,list<contact>> ();
+    Map<id,list<contact>> mapfordelete = new map<id,list<contact>> ();
+    Set<id> accntids = new Set<id>();
+    list<Account> AcntList = new List<Account>();
+    
+    
+    if(trigger.isinsert || trigger.isundelete)
+    {
+        for(Contact contin:trigger.new) 
+        {
+            if(string.isNotBlank(contin.AccountId))
+            {
+              if(!mapforupdate.containsKey(contin.AccountId))
+              {
+                  mapforupdate.put(contin.accountId, new list<contact>());
+              }
+           		mapforupdate.get(contin.accountId).add(contin);
+            	accntids.add(contin.AccountId);
+            }
+        }
+    }
+    
+    if(trigger.isdelete)
+    {
+        for(Contact contdel:Trigger.old)
+        {
+            if(string.isNotBlank(contdel.AccountId))
+            {
+           		if(!mapfordelete.containsKey(contdel.AccountId))
+                {
+                    mapfordelete.put(contdel.AccountId,new list<contact>());
+                }
+        
+                	mapfordelete.get(contdel.AccountId).add(contdel);
+           			
+                	accntids.add(contdel.AccountId);
+            }
+    
+        }
+    
+    }	 
+
+	if(trigger.isupdate)
+    {
+        for(contact contupdate:trigger.new)
+        {
+            if((contupdate.accountId != trigger.oldmap.get(contupdate.id).accountId) && String.isNotBlank(contupdate.AccountId))
+            {
+               if(!mapforupdate.containsKey(contupdate.AccountId))
+               {
+                   mapforupdate.put(contupdate.AccountId, new list<contact>());
+               }
+       		
+            	mapforupdate.get(contupdate.AccountId).add(contupdate);
+                accntids.add(contupdate.AccountId);
+            }
+            else if((String.isBlank(contupdate.AccountId)) && string.isNotBlank(trigger.oldmap.get(contupdate.Id).accountid))
+            {
+                if(!mapfordelete.containsKey(contupdate.AccountId))
+                {
+                    mapfordelete.put(contupdate.Id, new list<contact>());
+                }
+            		mapfordelete.get(contupdate.AccountId).add(contupdate);
+                	accntids.add(contupdate.AccountId);
+            }
+    	}
+	}
+
+	if(accntids.size()>0)
+    {
+        AcntList = [select id,No_of_contacts__c from Account where id in:accntids];
+        
+        Double countofcontact = 0 ;
+        for(Account acnt:AcntList)
+        {
+            if(mapforupdate.containsKey(acnt.Id))
+            {
+                countofcontact = mapforupdate.get(acnt.Id).size();
+            }
+            else if(mapfordelete.containsKey(acnt.Id))
+            {
+                countofcontact = mapfordelete.get(acnt.Id).size();
+            }
+        	
+            if(acnt.No_of_contacts__c == Null)
+            {
+                acnt.No_of_contacts__c = countofcontact ;
+            }
+            else 
+            {
+                acnt.No_of_contacts__c = (acnt.No_of_contacts__c + countofcontact );
+            }
+        
+        }
+    		update Acntlist;
+    }
+
+}    
